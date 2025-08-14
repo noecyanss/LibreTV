@@ -1,12 +1,10 @@
 // functions/customer-sites/[[path]].js
 // 客户站点API端点
 
-// 从环境变量获取MongoDB Atlas Data API配置
-const MONGODB_DATA_API_URL = process.env.MONGODB_DATA_API_URL;
-const MONGODB_API_KEY = process.env.MONGODB_API_KEY;
-const MONGODB_CLUSTER_NAME = process.env.MONGODB_CLUSTER_NAME || 'Cluster0';
-const DB_NAME = process.env.MONGODB_DB_NAME || 'libretv';
-const COLLECTION_NAME = process.env.MONGODB_COLLECTION_NAME || 'customer_sites';
+// CloudFlare Workers环境中的默认配置
+const DEFAULT_CLUSTER_NAME = 'Cluster0';
+const DEFAULT_DB_NAME = 'libretv';
+const DEFAULT_COLLECTION_NAME = 'customer_sites';
 
 // 验证请求的鉴权
 async function validateAuth(request, env) {
@@ -15,9 +13,9 @@ async function validateAuth(request, env) {
     const timestamp = url.searchParams.get('t');
     
     // 获取服务器端密码
-    const serverPassword = env.PASSWORD;
+    const serverPassword = env.PASSWORDS;
     if (!serverPassword) {
-        console.error('服务器未设置 PASSWORD 环境变量，API访问被拒绝');
+        console.error('服务器未设置 PASSWORDS 环境变量，API访问被拒绝');
         return false;
     }
     
@@ -67,11 +65,11 @@ function createResponse(body, status = 200) {
 
 // MongoDB Atlas Data API 请求函数
 async function mongoRequest(action, data = {}, env) {
-    const apiUrl = env.MONGODB_DATA_API_URL || MONGODB_DATA_API_URL;
-    const apiKey = env.MONGODB_API_KEY || MONGODB_API_KEY;
-    const clusterName = env.MONGODB_CLUSTER_NAME || MONGODB_CLUSTER_NAME;
-    const dbName = env.MONGODB_DB_NAME || DB_NAME;
-    const collectionName = env.MONGODB_COLLECTION_NAME || COLLECTION_NAME;
+    const apiUrl = env.MONGODB_DATA_API_URL;
+    const apiKey = env.MONGODB_API_KEY;
+    const clusterName = env.MONGODB_CLUSTER_NAME || DEFAULT_CLUSTER_NAME;
+    const dbName = env.MONGODB_DB_NAME || DEFAULT_DB_NAME;
+    const collectionName = env.MONGODB_COLLECTION_NAME || DEFAULT_COLLECTION_NAME;
     
     if (!apiUrl || !apiKey) {
         throw new Error('MongoDB Data API配置缺失，请设置MONGODB_DATA_API_URL和MONGODB_API_KEY环境变量');
