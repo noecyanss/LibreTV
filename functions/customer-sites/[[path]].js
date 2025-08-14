@@ -1,10 +1,10 @@
 // functions/customer-sites/[[path]].js
 // 客户站点API端点
 
-import { MongoClient } from 'mongodb';
-
-// 从环境变量获取MongoDB连接信息
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+// 从环境变量获取MongoDB Atlas Data API配置
+const MONGODB_DATA_API_URL = process.env.MONGODB_DATA_API_URL;
+const MONGODB_API_KEY = process.env.MONGODB_API_KEY;
+const MONGODB_CLUSTER_NAME = process.env.MONGODB_CLUSTER_NAME || 'Cluster0';
 const DB_NAME = process.env.MONGODB_DB_NAME || 'libretv';
 const COLLECTION_NAME = process.env.MONGODB_COLLECTION_NAME || 'customer_sites';
 
@@ -65,18 +65,41 @@ function createResponse(body, status = 200) {
     });
 }
 
-// 连接到MongoDB
-async function connectToMongoDB() {
-    try {
-        const client = new MongoClient(MONGODB_URI);
-        await client.connect();
-        const db = client.db(DB_NAME);
-        const collection = db.collection(COLLECTION_NAME);
-        return { client, collection };
-    } catch (error) {
-        console.error('MongoDB连接错误:', error);
-        throw error;
+// MongoDB Atlas Data API 请求函数
+async function mongoRequest(action, data = {}, env) {
+    const apiUrl = env.MONGODB_DATA_API_URL || MONGODB_DATA_API_URL;
+    const apiKey = env.MONGODB_API_KEY || MONGODB_API_KEY;
+    const clusterName = env.MONGODB_CLUSTER_NAME || MONGODB_CLUSTER_NAME;
+    const dbName = env.MONGODB_DB_NAME || DB_NAME;
+    const collectionName = env.MONGODB_COLLECTION_NAME || COLLECTION_NAME;
+    
+    if (!apiUrl || !apiKey) {
+        throw new Error('MongoDB Data API配置缺失，请设置MONGODB_DATA_API_URL和MONGODB_API_KEY环境变量');
     }
+    
+    const url = `${apiUrl}/action/${action}`;
+    const requestBody = {
+        dataSource: clusterName,
+        database: dbName,
+        collection: collectionName,
+        ...data
+    };
+    
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'api-key': apiKey
+        },
+        body: JSON.stringify(requestBody)
+    });
+    
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`MongoDB API请求失败: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    
+    return await response.json();
 }
 
 // 处理GET请求 - 获取所有客户站点或单个站点
@@ -86,27 +109,27 @@ async function handleGet(request, env) {
     const siteId = pathSegments[1]; // customer-sites/[siteId]
     
     try {
-        const { client, collection } = await connectToMongoDB();
-        
-        try {
-            if (siteId) {
-                // 获取单个站点
-                const site = await collection.findOne({ _id: siteId });
-                if (!site) {
-                    return createResponse({ success: false, error: '站点不存在' }, 404);
-                }
-                return createResponse({ success: true, data: site });
-            } else {
-                // 获取所有站点
-                const sites = await collection.find({}).toArray();
-                return createResponse({ success: true, data: sites });
+        if (siteId) {
+            // 获取单个站点
+            const result = await mongoRequest('findOne', {
+                filter: { _id: siteId }
+            }, env);
+            
+            if (!result.document) {
+                return createResponse({ success: false, error: '站点不存在' }, 404);
             }
-        } finally {
-            await client.close();
+            return createResponse({ success: true, data: result.document });
+        } else {
+            // 获取所有站点
+            const result = await mongoRequest('find', {
+                filter: {}
+            }, env);
+            
+            return createResponse({ success: true, data: result.documents || [] });
         }
     } catch (error) {
         console.error('处理GET请求错误:', error);
-        return createResponse({ success: false, error: '数据库操作失败' }, 500);
+        return createResponse({ success: false, error: error.message }, 500);
     }
 }
 
@@ -119,32 +142,32 @@ async function handlePost(request, env) {
             return createResponse({ success: false, error: '缺少必要字段 (id, api, name)' }, 400);
         }
         
-        const { client, collection } = await connectToMongoDB();
+        // 检查ID是否已存在
+        const existingResult = await mongoRequest('findOne', {
+            filter: { _id: data.id }
+        }, env);
         
-        try {
-            // 检查ID是否已存在
-            const existing = await collection.findOne({ _id: data.id });
-            if (existing) {
-                return createResponse({ success: false, error: '站点ID已存在' }, 409);
-            }
-            
-            // 插入新站点
-            const siteData = {
-                _id: data.id,
-                api: data.api,
-                name: data.name,
-                adult: data.adult || false,
-                createdAt: new Date().toISOString()
-            };
-            
-            await collection.insertOne(siteData);
-            return createResponse({ success: true, data: siteData });
-        } finally {
-            await client.close();
+        if (existingResult.document) {
+            return createResponse({ success: false, error: '站点ID已存在' }, 409);
         }
+        
+        // 插入新站点
+        const siteData = {
+            _id: data.id,
+            api: data.api,
+            name: data.name,
+            adult: data.adult || false,
+            createdAt: new Date().toISOString()
+        };
+        
+        await mongoRequest('insertOne', {
+            document: siteData
+        }, env);
+        
+        return createResponse({ success: true, data: siteData });
     } catch (error) {
         console.error('处理POST请求错误:', error);
-        return createResponse({ success: false, error: '数据库操作失败' }, 500);
+        return createResponse({ success: false, error: error.message }, 500);
     }
 }
 
@@ -165,31 +188,32 @@ async function handlePut(request, env) {
             return createResponse({ success: false, error: '缺少必要字段 (api, name)' }, 400);
         }
         
-        const { client, collection } = await connectToMongoDB();
+        // 检查站点是否存在
+        const existingResult = await mongoRequest('findOne', {
+            filter: { _id: siteId }
+        }, env);
         
-        try {
-            // 检查站点是否存在
-            const existing = await collection.findOne({ _id: siteId });
-            if (!existing) {
-                return createResponse({ success: false, error: '站点不存在' }, 404);
-            }
-            
-            // 更新站点
-            const siteData = {
-                api: data.api,
-                name: data.name,
-                adult: data.adult || false,
-                updatedAt: new Date().toISOString()
-            };
-            
-            await collection.updateOne({ _id: siteId }, { $set: siteData });
-            return createResponse({ success: true, data: { _id: siteId, ...siteData } });
-        } finally {
-            await client.close();
+        if (!existingResult.document) {
+            return createResponse({ success: false, error: '站点不存在' }, 404);
         }
+        
+        // 更新站点
+        const siteData = {
+            api: data.api,
+            name: data.name,
+            adult: data.adult || false,
+            updatedAt: new Date().toISOString()
+        };
+        
+        await mongoRequest('updateOne', {
+            filter: { _id: siteId },
+            update: { $set: siteData }
+        }, env);
+        
+        return createResponse({ success: true, data: { _id: siteId, ...siteData } });
     } catch (error) {
         console.error('处理PUT请求错误:', error);
-        return createResponse({ success: false, error: '数据库操作失败' }, 500);
+        return createResponse({ success: false, error: error.message }, 500);
     }
 }
 
@@ -204,24 +228,24 @@ async function handleDelete(request, env) {
     }
     
     try {
-        const { client, collection } = await connectToMongoDB();
+        // 检查站点是否存在
+        const existingResult = await mongoRequest('findOne', {
+            filter: { _id: siteId }
+        }, env);
         
-        try {
-            // 检查站点是否存在
-            const existing = await collection.findOne({ _id: siteId });
-            if (!existing) {
-                return createResponse({ success: false, error: '站点不存在' }, 404);
-            }
-            
-            // 删除站点
-            await collection.deleteOne({ _id: siteId });
-            return createResponse({ success: true, message: '站点已删除' });
-        } finally {
-            await client.close();
+        if (!existingResult.document) {
+            return createResponse({ success: false, error: '站点不存在' }, 404);
         }
+        
+        // 删除站点
+        await mongoRequest('deleteOne', {
+            filter: { _id: siteId }
+        }, env);
+        
+        return createResponse({ success: true, message: '站点已删除' });
     } catch (error) {
         console.error('处理DELETE请求错误:', error);
-        return createResponse({ success: false, error: '数据库操作失败' }, 500);
+        return createResponse({ success: false, error: error.message }, 500);
     }
 }
 

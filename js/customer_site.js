@@ -9,7 +9,8 @@ async function loadCustomerSitesFromDB() {
         const passwordHash = localStorage.getItem('passwordHash');
         
         if (!passwordHash) {
-            console.error("错误：未找到密码哈希，无法加载客户站点数据");
+            console.warn("警告：未找到密码哈希，使用默认客户站点配置");
+            useDefaultSites();
             return;
         }
         
@@ -31,15 +32,18 @@ async function loadCustomerSitesFromDB() {
         
         // 将API返回的数据转换为CUSTOMER_SITES格式
         CUSTOMER_SITES = {};
-        result.data.forEach(site => {
-            CUSTOMER_SITES[site._id] = {
-                api: site.api,
-                name: site.name,
-                adult: site.adult || false
-            };
-        });
-        
-        console.log(`已从数据库加载 ${result.data.length} 个客户站点`);
+        if (result.data && Array.isArray(result.data)) {
+            result.data.forEach(site => {
+                CUSTOMER_SITES[site._id] = {
+                    api: site.api,
+                    name: site.name,
+                    adult: site.adult || false
+                };
+            });
+            console.log(`已从数据库加载 ${result.data.length} 个客户站点`);
+        } else {
+            console.warn("数据库中暂无客户站点数据");
+        }
         
         // 调用全局方法合并
         if (window.extendAPISites) {
@@ -49,21 +53,24 @@ async function loadCustomerSitesFromDB() {
         }
     } catch (error) {
         console.error("加载客户站点数据失败:", error);
-        
-        // 如果加载失败，使用默认的站点配置
-        CUSTOMER_SITES = {
-            qiqi: {
-                api: 'https://www.qiqidys.com/api.php/provide/vod',
-                name: '七七资源',
-            }
-        };
-        
-        // 调用全局方法合并
-        if (window.extendAPISites) {
-            window.extendAPISites(CUSTOMER_SITES);
-        } else {
-            console.error("错误：请先加载 config.js！");
+        useDefaultSites();
+    }
+}
+
+// 使用默认站点配置
+function useDefaultSites() {
+    CUSTOMER_SITES = {
+        qiqi: {
+            api: 'https://www.qiqidys.com/api.php/provide/vod',
+            name: '七七资源',
         }
+    };
+    
+    // 调用全局方法合并
+    if (window.extendAPISites) {
+        window.extendAPISites(CUSTOMER_SITES);
+    } else {
+        console.error("错误：请先加载 config.js！");
     }
 }
 
@@ -247,6 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('passwordVerified') === 'true') {
         loadCustomerSitesFromDB();
     } else {
+        // 如果没有密码验证，先使用默认配置
+        useDefaultSites();
+        
         // 监听密码验证事件
         document.addEventListener('passwordVerified', () => {
             loadCustomerSitesFromDB();

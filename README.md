@@ -126,7 +126,30 @@ npm run dev
 
 ### MongoDB 配置
 
-LibreTV 现在支持使用 MongoDB 数据库存储客户站点配置。要启用此功能，请在环境变量中设置以下参数：
+LibreTV 现在支持使用 MongoDB 数据库存储客户站点配置。根据部署环境的不同，需要配置不同的参数：
+
+#### CloudFlare Pages 部署
+
+CloudFlare Pages 需要使用 MongoDB Atlas Data API，请在环境变量中设置：
+
+```
+MONGODB_DATA_API_URL=https://data.mongodb-api.com/app/data-xxxxx/endpoint/data/v1
+MONGODB_API_KEY=your-mongodb-atlas-api-key
+MONGODB_CLUSTER_NAME=Cluster0
+MONGODB_DB_NAME=libretv
+MONGODB_COLLECTION_NAME=customer_sites
+```
+
+**获取 MongoDB Atlas Data API 配置步骤：**
+1. 登录 [MongoDB Atlas](https://cloud.mongodb.com/)
+2. 选择您的项目和集群
+3. 在左侧菜单中选择 "Data API"
+4. 启用 Data API 并创建 API Key
+5. 复制 Data API URL 和 API Key
+
+#### 本地开发或其他环境
+
+对于支持 Node.js 的环境，可以使用传统的 MongoDB 连接：
 
 ```
 MONGODB_URI=mongodb+srv://username:password@cluster0.example.mongodb.net
@@ -134,11 +157,11 @@ MONGODB_DB_NAME=libretv
 MONGODB_COLLECTION_NAME=customer_sites
 ```
 
-- **MONGODB_URI**: MongoDB 连接字符串，支持 MongoDB Atlas 或自托管 MongoDB
+- **MONGODB_DATA_API_URL**: MongoDB Atlas Data API 端点 URL
+- **MONGODB_API_KEY**: MongoDB Atlas API 密钥
+- **MONGODB_CLUSTER_NAME**: 集群名称，默认为 `Cluster0`
 - **MONGODB_DB_NAME**: 数据库名称，默认为 `libretv`
 - **MONGODB_COLLECTION_NAME**: 集合名称，默认为 `customer_sites`
-
-在 Cloudflare Pages 中，您需要在"设置" > "环境变量"中添加这些变量。
 
 ### 客户站点管理
 
