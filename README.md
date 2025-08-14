@@ -182,54 +182,19 @@ CloudFlare D1 是 CloudFlare 提供的 SQLite 数据库服务，与 CloudFlare P
 - ✅ 无需额外配置网络访问权限
 - ✅ 自动备份和恢复
 
-#### MongoDB Atlas Data API（备选方案）
-
-如果您更喜欢使用 MongoDB，可以使用 MongoDB Atlas Data API：
-
-**配置步骤：**
-
-1. **登录 MongoDB Atlas**
-   - 访问 [MongoDB Atlas](https://cloud.mongodb.com/)
-   - 使用您的账户登录
-
-2. **选择项目和集群**
-   - 在 Atlas 控制台中选择您的项目
-   - 确保您已经创建了一个集群（如果没有，请先创建一个免费的 M0 集群）
-
-3. **启用 Data API**
-   - 在左侧导航菜单中找到并点击 **"Data API"**
-   - 如果是第一次使用，点击 **"Enable the Data API"** 按钮
-   - 选择您要启用 Data API 的集群
-
-4. **创建 API Key**
-   - 在 Data API 页面中，点击 **"Create API Key"** 按钮
-   - 输入 API Key 的名称（例如：LibreTV-API-Key）
-   - 复制生成的 **API Key**（这就是 `MONGODB_API_KEY`）
-   - ⚠️ **重要**：API Key 只会显示一次，请立即保存
-
-5. **获取 Data API URL**
-   - 在 Data API 页面中，您会看到 **"Data API Base URL"**
-   - URL 格式类似：`https://data.mongodb-api.com/app/data-xxxxx/endpoint/data/v1`
-   - 复制这个完整的 URL（这就是 `MONGODB_DATA_API_URL`）
-
-6. **在 CloudFlare Pages 中设置环境变量**
-   ```
-   MONGODB_DATA_API_URL=https://data.mongodb-api.com/app/data-xxxxx/endpoint/data/v1
-   MONGODB_API_KEY=your-api-key-here
-   MONGODB_CLUSTER_NAME=Cluster0
-   MONGODB_DB_NAME=libretv
-   MONGODB_COLLECTION_NAME=customer_sites
-   ```
-
 #### 本地开发环境
 
-对于本地开发，可以使用传统的 MongoDB 连接：
+对于本地开发，D1数据库同样可以使用。您可以：
 
-```
-MONGODB_URI=mongodb+srv://username:password@cluster0.example.mongodb.net
-MONGODB_DB_NAME=libretv
-MONGODB_COLLECTION_NAME=customer_sites
-```
+1. **使用本地D1数据库**：
+   ```bash
+   # 创建本地D1数据库用于开发
+   npx wrangler d1 create libretv-dev --local
+   ```
+
+2. **或者使用远程D1数据库**：
+   - 使用与生产环境相同的D1数据库配置
+   - 通过wrangler.toml配置文件管理
 
 ### 客户站点管理
 

@@ -138,29 +138,39 @@ async function handleGet(request, env) {
 // 处理POST请求 - 添加新站点
 async function handlePost(request, env) {
     try {
+        console.log('开始处理POST请求');
+        
         const data = await request.json();
+        console.log('接收到的数据:', data);
         
         if (!data.id || !data.api || !data.name) {
+            console.error('缺少必要字段:', { id: data.id, api: data.api, name: data.name });
             return createResponse({ success: false, error: '缺少必要字段 (id, api, name)' }, 400);
         }
         
         const db = env.DB;
         if (!db) {
+            console.error('D1数据库未绑定');
             throw new Error('D1数据库未绑定，请在CloudFlare Pages设置中绑定DB变量');
         }
         
+        console.log('开始初始化数据库表');
         // 确保表存在
         await initDatabase(db);
         
+        console.log('检查站点ID是否已存在:', data.id);
         // 检查ID是否已存在
         const existing = await db.prepare('SELECT id FROM customer_sites WHERE id = ?').bind(data.id).first();
         if (existing) {
+            console.error('站点ID已存在:', data.id);
             return createResponse({ success: false, error: '站点ID已存在' }, 409);
         }
         
         // 插入新站点
         const now = new Date().toISOString();
-        await db.prepare(`
+        console.log('开始插入新站点:', { id: data.id, api: data.api, name: data.name, adult: data.adult });
+        
+        const result = await db.prepare(`
             INSERT INTO customer_sites (id, api, name, adult, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
         `).bind(
@@ -172,6 +182,8 @@ async function handlePost(request, env) {
             now
         ).run();
         
+        console.log('插入结果:', result);
+        
         const siteData = {
             _id: data.id,
             api: data.api,
@@ -181,6 +193,7 @@ async function handlePost(request, env) {
             updatedAt: now
         };
         
+        console.log('站点添加成功:', siteData);
         return createResponse({ success: true, data: siteData });
     } catch (error) {
         console.error('处理POST请求错误:', error);

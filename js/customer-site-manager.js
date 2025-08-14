@@ -84,8 +84,8 @@ function cancelAddCustomerSite() {
     }
 }
 
-// 添加客户站点
-async function addCustomerSite() {
+// 添加客户站点（UI处理函数）
+async function handleAddCustomerSite() {
     const idInput = document.getElementById('customerSiteId');
     const nameInput = document.getElementById('customerSiteName');
     const apiInput = document.getElementById('customerSiteApi');
@@ -122,7 +122,7 @@ async function addCustomerSite() {
         // 显示加载中
         showLoading();
         
-        // 调用添加客户站点函数
+        // 调用添加客户站点函数（来自customer_site.js）
         const success = await window.addCustomerSite(id, api, name, adult);
         
         if (success) {
@@ -204,7 +204,7 @@ async function updateCustomerSite(id) {
             const addButton = document.querySelector('#addCustomerSiteForm button:first-of-type');
             if (addButton) {
                 addButton.textContent = '添加';
-                addButton.onclick = addCustomerSite;
+                addButton.onclick = handleAddCustomerSite;
             }
             
             // 恢复ID输入框
@@ -337,5 +337,5 @@ document.addEventListener('DOMContentLoaded', () => {
 // 导出函数
 window.showAddCustomerSiteForm = showAddCustomerSiteForm;
 window.cancelAddCustomerSite = cancelAddCustomerSite;
-window.addCustomerSite = addCustomerSite;
+window.handleAddCustomerSite = handleAddCustomerSite;
 window.displayCustomerSites = displayCustomerSites;
