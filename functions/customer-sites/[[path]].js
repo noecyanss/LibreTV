@@ -1,10 +1,5 @@
 // functions/customer-sites/[[path]].js
-// 客户站点API端点
-
-// CloudFlare Workers环境中的默认配置
-const DEFAULT_CLUSTER_NAME = 'Cluster0';
-const DEFAULT_DB_NAME = 'libretv';
-const DEFAULT_COLLECTION_NAME = 'customer_sites';
+// 客户站点API端点 - 使用CloudFlare D1数据库
 
 // 验证请求的鉴权
 async function validateAuth(request, env) {
@@ -63,41 +58,25 @@ function createResponse(body, status = 200) {
     });
 }
 
-// MongoDB Atlas Data API 请求函数
-async function mongoRequest(action, data = {}, env) {
-    const apiUrl = env.MONGODB_DATA_API_URL;
-    const apiKey = env.MONGODB_API_KEY;
-    const clusterName = env.MONGODB_CLUSTER_NAME || DEFAULT_CLUSTER_NAME;
-    const dbName = env.MONGODB_DB_NAME || DEFAULT_DB_NAME;
-    const collectionName = env.MONGODB_COLLECTION_NAME || DEFAULT_COLLECTION_NAME;
-    
-    if (!apiUrl || !apiKey) {
-        throw new Error('MongoDB Data API配置缺失，请设置MONGODB_DATA_API_URL和MONGODB_API_KEY环境变量');
+// 初始化数据库表
+async function initDatabase(db) {
+    try {
+        await db.prepare(`
+            CREATE TABLE IF NOT EXISTS customer_sites (
+                id TEXT PRIMARY KEY,
+                api TEXT NOT NULL,
+                name TEXT NOT NULL,
+                adult INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        `).run();
+        
+        console.log('数据库表初始化成功');
+    } catch (error) {
+        console.error('数据库表初始化失败:', error);
+        throw error;
     }
-    
-    const url = `${apiUrl}/action/${action}`;
-    const requestBody = {
-        dataSource: clusterName,
-        database: dbName,
-        collection: collectionName,
-        ...data
-    };
-    
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'api-key': apiKey
-        },
-        body: JSON.stringify(requestBody)
-    });
-    
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`MongoDB API请求失败: ${response.status} ${response.statusText} - ${errorText}`);
-    }
-    
-    return await response.json();
 }
 
 // 处理GET请求 - 获取所有客户站点或单个站点
@@ -107,23 +86,48 @@ async function handleGet(request, env) {
     const siteId = pathSegments[1]; // customer-sites/[siteId]
     
     try {
+        const db = env.DB; // CloudFlare D1 数据库绑定
+        if (!db) {
+            throw new Error('D1数据库未绑定，请在CloudFlare Pages设置中绑定DB变量');
+        }
+        
+        // 确保表存在
+        await initDatabase(db);
+        
         if (siteId) {
             // 获取单个站点
-            const result = await mongoRequest('findOne', {
-                filter: { _id: siteId }
-            }, env);
+            const result = await db.prepare('SELECT * FROM customer_sites WHERE id = ?').bind(siteId).first();
             
-            if (!result.document) {
+            if (!result) {
                 return createResponse({ success: false, error: '站点不存在' }, 404);
             }
-            return createResponse({ success: true, data: result.document });
+            
+            // 转换数据格式
+            const site = {
+                _id: result.id,
+                api: result.api,
+                name: result.name,
+                adult: result.adult === 1,
+                createdAt: result.created_at,
+                updatedAt: result.updated_at
+            };
+            
+            return createResponse({ success: true, data: site });
         } else {
             // 获取所有站点
-            const result = await mongoRequest('find', {
-                filter: {}
-            }, env);
+            const result = await db.prepare('SELECT * FROM customer_sites ORDER BY created_at DESC').all();
             
-            return createResponse({ success: true, data: result.documents || [] });
+            // 转换数据格式
+            const sites = result.results.map(row => ({
+                _id: row.id,
+                api: row.api,
+                name: row.name,
+                adult: row.adult === 1,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            }));
+            
+            return createResponse({ success: true, data: sites });
         }
     } catch (error) {
         console.error('处理GET请求错误:', error);
@@ -140,27 +144,42 @@ async function handlePost(request, env) {
             return createResponse({ success: false, error: '缺少必要字段 (id, api, name)' }, 400);
         }
         
-        // 检查ID是否已存在
-        const existingResult = await mongoRequest('findOne', {
-            filter: { _id: data.id }
-        }, env);
+        const db = env.DB;
+        if (!db) {
+            throw new Error('D1数据库未绑定，请在CloudFlare Pages设置中绑定DB变量');
+        }
         
-        if (existingResult.document) {
+        // 确保表存在
+        await initDatabase(db);
+        
+        // 检查ID是否已存在
+        const existing = await db.prepare('SELECT id FROM customer_sites WHERE id = ?').bind(data.id).first();
+        if (existing) {
             return createResponse({ success: false, error: '站点ID已存在' }, 409);
         }
         
         // 插入新站点
+        const now = new Date().toISOString();
+        await db.prepare(`
+            INSERT INTO customer_sites (id, api, name, adult, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(
+            data.id,
+            data.api,
+            data.name,
+            data.adult ? 1 : 0,
+            now,
+            now
+        ).run();
+        
         const siteData = {
             _id: data.id,
             api: data.api,
             name: data.name,
             adult: data.adult || false,
-            createdAt: new Date().toISOString()
+            createdAt: now,
+            updatedAt: now
         };
-        
-        await mongoRequest('insertOne', {
-            document: siteData
-        }, env);
         
         return createResponse({ success: true, data: siteData });
     } catch (error) {
@@ -186,29 +205,43 @@ async function handlePut(request, env) {
             return createResponse({ success: false, error: '缺少必要字段 (api, name)' }, 400);
         }
         
-        // 检查站点是否存在
-        const existingResult = await mongoRequest('findOne', {
-            filter: { _id: siteId }
-        }, env);
+        const db = env.DB;
+        if (!db) {
+            throw new Error('D1数据库未绑定，请在CloudFlare Pages设置中绑定DB变量');
+        }
         
-        if (!existingResult.document) {
+        // 确保表存在
+        await initDatabase(db);
+        
+        // 检查站点是否存在
+        const existing = await db.prepare('SELECT id FROM customer_sites WHERE id = ?').bind(siteId).first();
+        if (!existing) {
             return createResponse({ success: false, error: '站点不存在' }, 404);
         }
         
         // 更新站点
+        const now = new Date().toISOString();
+        await db.prepare(`
+            UPDATE customer_sites 
+            SET api = ?, name = ?, adult = ?, updated_at = ?
+            WHERE id = ?
+        `).bind(
+            data.api,
+            data.name,
+            data.adult ? 1 : 0,
+            now,
+            siteId
+        ).run();
+        
         const siteData = {
+            _id: siteId,
             api: data.api,
             name: data.name,
             adult: data.adult || false,
-            updatedAt: new Date().toISOString()
+            updatedAt: now
         };
         
-        await mongoRequest('updateOne', {
-            filter: { _id: siteId },
-            update: { $set: siteData }
-        }, env);
-        
-        return createResponse({ success: true, data: { _id: siteId, ...siteData } });
+        return createResponse({ success: true, data: siteData });
     } catch (error) {
         console.error('处理PUT请求错误:', error);
         return createResponse({ success: false, error: error.message }, 500);
@@ -226,19 +259,22 @@ async function handleDelete(request, env) {
     }
     
     try {
-        // 检查站点是否存在
-        const existingResult = await mongoRequest('findOne', {
-            filter: { _id: siteId }
-        }, env);
+        const db = env.DB;
+        if (!db) {
+            throw new Error('D1数据库未绑定，请在CloudFlare Pages设置中绑定DB变量');
+        }
         
-        if (!existingResult.document) {
+        // 确保表存在
+        await initDatabase(db);
+        
+        // 检查站点是否存在
+        const existing = await db.prepare('SELECT id FROM customer_sites WHERE id = ?').bind(siteId).first();
+        if (!existing) {
             return createResponse({ success: false, error: '站点不存在' }, 404);
         }
         
         // 删除站点
-        await mongoRequest('deleteOne', {
-            filter: { _id: siteId }
-        }, env);
+        await db.prepare('DELETE FROM customer_sites WHERE id = ?').bind(siteId).run();
         
         return createResponse({ success: true, message: '站点已删除' });
     } catch (error) {

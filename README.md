@@ -63,8 +63,14 @@ Pull Bot 会反复触发无效的 PR 和垃圾邮件，严重干扰项目维护�
 1. Fork 或克隆本仓库到您的 GitHub/GitLab 账户
 2. 登录 [Vercel](https://vercel.com/)，点击"New Project"
 3. 导入您的仓库，使用默认设置
-4. **⚠️ 重要：在"Settings" > "Environment Variables"中添加 `PASSWORD` 变量（必须设置）**
-5. 点击"Deploy"
+4. **配置 D1 数据库（推荐）**
+   - 在项目设置中，转到 **"函数" > "D1 数据库绑定"**
+   - 添加变量名 `DB`，选择您创建的 D1 数据库
+   - 或者，如果使用 MongoDB，请在环境变量中添加相关配置
+
+5. **⚠️ 重要：在"Settings" > "Environment Variables"中添加 `PASSWORD` 变量（必须设置）**
+
+6. 点击"Deploy"
 
 
 ### Docker
@@ -124,44 +130,106 @@ npm run dev
 
 **重要提示**: 为确保安全，所有部署都必须设置 PASSWORD 环境变量，否则用户将看到设置密码的提示。
 
-### MongoDB 配置
+### 数据库配置
 
-LibreTV 现在支持使用 MongoDB 数据库存储客户站点配置。根据部署环境的不同，需要配置不同的参数：
+LibreTV 现在支持使用数据库存储客户站点配置。根据部署环境的不同，推荐使用不同的数据库方案：
 
-#### CloudFlare Pages 部署
+#### CloudFlare D1 数据库（推荐）
 
-CloudFlare Pages 需要使用 MongoDB Atlas Data API，请在环境变量中设置：
+CloudFlare D1 是 CloudFlare 提供的 SQLite 数据库服务，与 CloudFlare Pages 完美集成，**强烈推荐**用于 CloudFlare 部署。
 
-```
-MONGODB_DATA_API_URL=https://data.mongodb-api.com/app/data-xxxxx/endpoint/data/v1
-MONGODB_API_KEY=your-mongodb-atlas-api-key
-MONGODB_CLUSTER_NAME=Cluster0
-MONGODB_DB_NAME=libretv
-MONGODB_COLLECTION_NAME=customer_sites
-```
+**配置步骤：**
 
-**获取 MongoDB Atlas Data API 配置步骤：**
-1. 登录 [MongoDB Atlas](https://cloud.mongodb.com/)
-2. 选择您的项目和集群
-3. 在左侧菜单中选择 "Data API"
-4. 启用 Data API 并创建 API Key
-5. 复制 Data API URL 和 API Key
+1. **快速设置（推荐）**
+   ```bash
+   # 使用自动化脚本创建和配置 D1 数据库
+   npm run setup-d1
+   ```
+   
+   这个脚本会自动：
+   - 创建名为 `libretv-db` 的 D1 数据库
+   - 更新 `wrangler.toml` 配置文件
+   - 显示后续配置步骤
 
-#### 本地开发或其他环境
+2. **手动设置**
+   ```bash
+   # 使用 Wrangler CLI 创建数据库
+   npx wrangler d1 create libretv-db
+   ```
+   
+   然后手动更新 `wrangler.toml` 配置：
+   ```toml
+   [[d1_databases]]
+   binding = "DB"
+   database_name = "libretv-db"
+   database_id = "your-database-id-here"  # 替换为实际的数据库 ID
+   ```
 
-对于支持 Node.js 的环境，可以使用传统的 MongoDB 连接：
+4. **在 CloudFlare Pages 中绑定数据库**
+   - 登录 [CloudFlare Dashboard](https://dash.cloudflare.com/)
+   - 进入您的 Pages 项目
+   - 转到 **"设置" > "函数" > "D1 数据库绑定"**
+   - 添加变量名 `DB`，选择您创建的数据库 `libretv-db`
+
+5. **部署项目**
+   - 数据库表会在首次访问时自动创建
+   - 无需手动创建表结构
+
+**优势：**
+- ✅ 与 CloudFlare Pages 原生集成
+- ✅ 免费额度充足（每天 100,000 次读取，50,000 次写入）
+- ✅ 低延迟，全球分布
+- ✅ 无需额外配置网络访问权限
+- ✅ 自动备份和恢复
+
+#### MongoDB Atlas Data API（备选方案）
+
+如果您更喜欢使用 MongoDB，可以使用 MongoDB Atlas Data API：
+
+**配置步骤：**
+
+1. **登录 MongoDB Atlas**
+   - 访问 [MongoDB Atlas](https://cloud.mongodb.com/)
+   - 使用您的账户登录
+
+2. **选择项目和集群**
+   - 在 Atlas 控制台中选择您的项目
+   - 确保您已经创建了一个集群（如果没有，请先创建一个免费的 M0 集群）
+
+3. **启用 Data API**
+   - 在左侧导航菜单中找到并点击 **"Data API"**
+   - 如果是第一次使用，点击 **"Enable the Data API"** 按钮
+   - 选择您要启用 Data API 的集群
+
+4. **创建 API Key**
+   - 在 Data API 页面中，点击 **"Create API Key"** 按钮
+   - 输入 API Key 的名称（例如：LibreTV-API-Key）
+   - 复制生成的 **API Key**（这就是 `MONGODB_API_KEY`）
+   - ⚠️ **重要**：API Key 只会显示一次，请立即保存
+
+5. **获取 Data API URL**
+   - 在 Data API 页面中，您会看到 **"Data API Base URL"**
+   - URL 格式类似：`https://data.mongodb-api.com/app/data-xxxxx/endpoint/data/v1`
+   - 复制这个完整的 URL（这就是 `MONGODB_DATA_API_URL`）
+
+6. **在 CloudFlare Pages 中设置环境变量**
+   ```
+   MONGODB_DATA_API_URL=https://data.mongodb-api.com/app/data-xxxxx/endpoint/data/v1
+   MONGODB_API_KEY=your-api-key-here
+   MONGODB_CLUSTER_NAME=Cluster0
+   MONGODB_DB_NAME=libretv
+   MONGODB_COLLECTION_NAME=customer_sites
+   ```
+
+#### 本地开发环境
+
+对于本地开发，可以使用传统的 MongoDB 连接：
 
 ```
 MONGODB_URI=mongodb+srv://username:password@cluster0.example.mongodb.net
 MONGODB_DB_NAME=libretv
 MONGODB_COLLECTION_NAME=customer_sites
 ```
-
-- **MONGODB_DATA_API_URL**: MongoDB Atlas Data API 端点 URL
-- **MONGODB_API_KEY**: MongoDB Atlas API 密钥
-- **MONGODB_CLUSTER_NAME**: 集群名称，默认为 `Cluster0`
-- **MONGODB_DB_NAME**: 数据库名称，默认为 `libretv`
-- **MONGODB_COLLECTION_NAME**: 集合名称，默认为 `customer_sites`
 
 ### 客户站点管理
 

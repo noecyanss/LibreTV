@@ -1,0 +1,24 @@
+# CloudFlare Pages 配置文件
+name = "libretv"
+compatibility_date = "2023-12-01"
+
+# D1 数据库配置
+[[d1_databases]]
+binding = "DB"
+database_name = "libretv-db"
+database_id = "your-database-id-here"
+
+# 环境变量配置
+[vars]
+# 在 CloudFlare Pages 控制台中设置这些变量
+# PASSWORD = "your-password"
+
+# Pages 配置
+[build]
+command = ""
+cwd = ""
+watch_dir = ""
+
+# Functions 配置
+[[pages_build_output.functions]]
+directory = "functions"
