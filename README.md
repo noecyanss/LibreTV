@@ -124,15 +124,40 @@ npm run dev
 
 **重要提示**: 为确保安全，所有部署都必须设置 PASSWORD 环境变量，否则用户将看到设置密码的提示。
 
+### MongoDB 配置
+
+LibreTV 现在支持使用 MongoDB 数据库存储客户站点配置。要启用此功能，请在环境变量中设置以下参数：
+
+```
+MONGODB_URI=mongodb+srv://username:password@cluster0.example.mongodb.net
+MONGODB_DB_NAME=libretv
+MONGODB_COLLECTION_NAME=customer_sites
+```
+
+- **MONGODB_URI**: MongoDB 连接字符串，支持 MongoDB Atlas 或自托管 MongoDB
+- **MONGODB_DB_NAME**: 数据库名称，默认为 `libretv`
+- **MONGODB_COLLECTION_NAME**: 集合名称，默认为 `customer_sites`
+
+在 Cloudflare Pages 中，您需要在"设置" > "环境变量"中添加这些变量。
+
+### 客户站点管理
+
+LibreTV 提供了客户站点管理功能，允许管理员添加、编辑和删除客户站点。客户站点配置存储在 MongoDB 数据库中，可通过设置面板中的"客户站点管理"进行操作。
+
+**添加客户站点**:
+1. 在设置面板中选择"客户站点管理"
+2. 点击"+"按钮
+3. 填写站点ID、名称和API地址
+4. 点击"添加"按钮保存
 
 ### API兼容性
 
-LibreTV 支持标准的苹果 CMS V10 API 格式。添加自定义 API 时需遵循以下格式：
+LibreTV 支持标准的苹果 CMS V10 API 格式。添加自定义 API 或客户站点时需遵循以下格式：
 - 搜索接口: `https://example.com/api.php/provide/vod/?ac=videolist&wd=关键词`
 - 详情接口: `https://example.com/api.php/provide/vod/?ac=detail&ids=视频ID`
 
 **添加 CMS 源**:
-1. 在设置面板中选择"自定义接口"
+1. 在设置面板中选择"自定义接口"或"客户站点管理"
 2. 接口地址: `https://example.com/api.php/provide/vod`
 
 ## ⌨️ 键盘快捷键
