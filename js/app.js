@@ -1354,3 +1354,6 @@ function saveStringAsFile(content, fileName) {
 }
 
 // 移除Node.js的require语句，因为这是在浏览器环境中运行的
+
+// 暴露initAPICheckboxes函数到全局
+window.initAPICheckboxes = initAPICheckboxes;

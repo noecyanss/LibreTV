@@ -48,6 +48,11 @@ async function loadCustomerSitesFromDB() {
         // 调用全局方法合并
         if (window.extendAPISites) {
             window.extendAPISites(CUSTOMER_SITES);
+            
+            // 重新初始化API复选框以显示新加载的客户站点
+            if (window.initAPICheckboxes) {
+                window.initAPICheckboxes();
+            }
         } else {
             console.error("错误：请先加载 config.js！");
         }
@@ -69,6 +74,11 @@ function useDefaultSites() {
     // 调用全局方法合并
     if (window.extendAPISites) {
         window.extendAPISites(CUSTOMER_SITES);
+        
+        // 重新初始化API复选框以显示默认站点
+        if (window.initAPICheckboxes) {
+            window.initAPICheckboxes();
+        }
     } else {
         console.error("错误：请先加载 config.js！");
     }
@@ -122,6 +132,11 @@ async function addCustomerSite(id, api, name, adult = false) {
         // 调用全局方法合并
         if (window.extendAPISites) {
             window.extendAPISites({ [id]: { api, name, adult } });
+            
+            // 重新初始化API复选框以显示新添加的客户站点
+            if (window.initAPICheckboxes) {
+                window.initAPICheckboxes();
+            }
         }
         
         return true;
@@ -178,6 +193,11 @@ async function updateCustomerSite(id, api, name, adult = false) {
         // 调用全局方法合并
         if (window.extendAPISites) {
             window.extendAPISites({ [id]: { api, name, adult } });
+            
+            // 重新初始化API复选框以显示更新的客户站点
+            if (window.initAPICheckboxes) {
+                window.initAPICheckboxes();
+            }
         }
         
         return true;
@@ -232,6 +252,11 @@ async function deleteCustomerSite(id) {
             window.API_SITES = newAPISites;
             // 重新合并所有客户站点
             window.extendAPISites(CUSTOMER_SITES);
+            
+            // 重新初始化API复选框以反映删除操作
+            if (window.initAPICheckboxes) {
+                window.initAPICheckboxes();
+            }
         }
         
         return true;
