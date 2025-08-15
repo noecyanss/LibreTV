@@ -1,34 +1,18 @@
 // 初始化一个空对象，稍后会从D1数据库加载数据
 let CUSTOMER_SITES = {};
 
-// SHA-256 哈希函数
-async function sha256(message) {
-    if (window.crypto && crypto.subtle && crypto.subtle.digest) {
-        const msgBuffer = new TextEncoder().encode(message);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    } else {
-        // 如果不支持 Web Crypto API，抛出错误
-        throw new Error('此浏览器不支持 Web Crypto API');
-    }
-}
-
 // 从API获取客户站点数据
 async function loadCustomerSitesFromDB() {
     try {
-        // 获取当前时间戳和密码，用于API鉴权
+        // 获取当前时间戳和密码哈希，用于API鉴权
         const timestamp = Date.now();
-        const password = localStorage.getItem('password');
+        const passwordHash = window.__ENV__?.PASSWORD;
         
-        if (!password) {
-            console.warn("警告：未找到密码，使用默认客户站点配置");
+        if (!passwordHash) {
+            console.warn("警告：未找到密码哈希，使用默认客户站点配置");
             useDefaultSites();
             return;
         }
-        
-        // 计算密码哈希
-        const passwordHash = await sha256(password);
         
         // 构建API请求URL
         const apiUrl = `/customer-sites?auth=${passwordHash}&t=${timestamp}`;
@@ -93,16 +77,13 @@ function useDefaultSites() {
 // 添加新的客户站点
 async function addCustomerSite(id, api, name, adult = false) {
     try {
-        // 获取当前时间戳和密码，用于API鉴权
+        // 获取当前时间戳和密码哈希，用于API鉴权
         const timestamp = Date.now();
-        const password = localStorage.getItem('password');
+        const passwordHash = window.__ENV__?.PASSWORD;
         
-        if (!password) {
-            throw new Error("未找到密码，无法添加客户站点");
+        if (!passwordHash) {
+            throw new Error("未找到密码哈希，无法添加客户站点");
         }
-        
-        // 计算密码哈希
-        const passwordHash = await sha256(password);
         
         // 构建API请求URL
         const apiUrl = `/customer-sites?auth=${passwordHash}&t=${timestamp}`;
@@ -153,16 +134,13 @@ async function addCustomerSite(id, api, name, adult = false) {
 // 更新客户站点
 async function updateCustomerSite(id, api, name, adult = false) {
     try {
-        // 获取当前时间戳和密码，用于API鉴权
+        // 获取当前时间戳和密码哈希，用于API鉴权
         const timestamp = Date.now();
-        const password = localStorage.getItem('password');
+        const passwordHash = window.__ENV__?.PASSWORD;
         
-        if (!password) {
-            throw new Error("未找到密码，无法更新客户站点");
+        if (!passwordHash) {
+            throw new Error("未找到密码哈希，无法更新客户站点");
         }
-        
-        // 计算密码哈希
-        const passwordHash = await sha256(password);
         
         // 构建API请求URL
         const apiUrl = `/customer-sites/${id}?auth=${passwordHash}&t=${timestamp}`;
@@ -212,16 +190,13 @@ async function updateCustomerSite(id, api, name, adult = false) {
 // 删除客户站点
 async function deleteCustomerSite(id) {
     try {
-        // 获取当前时间戳和密码，用于API鉴权
+        // 获取当前时间戳和密码哈希，用于API鉴权
         const timestamp = Date.now();
-        const password = localStorage.getItem('password');
+        const passwordHash = window.__ENV__?.PASSWORD;
         
-        if (!password) {
-            throw new Error("未找到密码，无法删除客户站点");
+        if (!passwordHash) {
+            throw new Error("未找到密码哈希，无法删除客户站点");
         }
-        
-        // 计算密码哈希
-        const passwordHash = await sha256(password);
         
         // 构建API请求URL
         const apiUrl = `/customer-sites/${id}?auth=${passwordHash}&t=${timestamp}`;
