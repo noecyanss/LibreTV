@@ -3,12 +3,18 @@
 
 // 验证请求的鉴权
 async function validateAuth(request, env) {
+    console.log('开始验证请求鉴权');
+    
     const url = new URL(request.url);
     const authHash = url.searchParams.get('auth');
     const timestamp = url.searchParams.get('t');
     
+    console.log('请求参数:', { authHash: authHash?.substring(0, 10) + '...', timestamp });
+    
     // 获取服务器端密码
     const serverPassword = env.PASSWORD;
+    console.log('服务器密码状态:', { hasPassword: !!serverPassword, passwordLength: serverPassword?.length });
+    
     if (!serverPassword) {
         console.error('服务器未设置 PASSWORD 环境变量，API访问被拒绝');
         return false;
@@ -22,10 +28,17 @@ async function validateAuth(request, env) {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const serverPasswordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         
+        console.log('服务器密码哈希:', serverPasswordHash.substring(0, 10) + '...');
+        
         if (!authHash || authHash !== serverPasswordHash) {
-            console.warn('API请求鉴权失败：密码哈希不匹配');
+            console.warn('API请求鉴权失败：密码哈希不匹配', { 
+                authHashPrefix: authHash?.substring(0, 10),
+                serverHashPrefix: serverPasswordHash.substring(0, 10)
+            });
             return false;
         }
+        
+        console.log('密码验证成功');
     } catch (error) {
         console.error('计算密码哈希失败:', error);
         return false;
@@ -41,6 +54,7 @@ async function validateAuth(request, env) {
         }
     }
     
+    console.log('鉴权验证完成');
     return true;
 }
 
@@ -81,24 +95,35 @@ async function initDatabase(db) {
 
 // 处理GET请求 - 获取所有客户站点或单个站点
 async function handleGet(request, env) {
+    console.log('开始处理GET请求');
+    
     const url = new URL(request.url);
     const pathSegments = url.pathname.split('/').filter(Boolean);
     const siteId = pathSegments[1]; // customer-sites/[siteId]
     
+    console.log('请求路径:', { pathname: url.pathname, pathSegments, siteId });
+    
     try {
         const db = env.DB; // CloudFlare D1 数据库绑定
+        console.log('D1数据库状态:', { hasDB: !!db, dbType: typeof db });
+        
         if (!db) {
+            console.error('D1数据库未绑定');
             throw new Error('D1数据库未绑定，请在CloudFlare Pages设置中绑定DB变量');
         }
         
+        console.log('开始初始化数据库表');
         // 确保表存在
         await initDatabase(db);
+        console.log('数据库表初始化完成');
         
         if (siteId) {
+            console.log('获取单个站点:', siteId);
             // 获取单个站点
             const result = await db.prepare('SELECT * FROM customer_sites WHERE id = ?').bind(siteId).first();
             
             if (!result) {
+                console.log('站点不存在:', siteId);
                 return createResponse({ success: false, error: '站点不存在' }, 404);
             }
             
@@ -112,10 +137,13 @@ async function handleGet(request, env) {
                 updatedAt: result.updated_at
             };
             
+            console.log('返回单个站点数据:', site);
             return createResponse({ success: true, data: site });
         } else {
+            console.log('获取所有站点');
             // 获取所有站点
             const result = await db.prepare('SELECT * FROM customer_sites ORDER BY created_at DESC').all();
+            console.log('查询结果:', { success: result.success, count: result.results?.length });
             
             // 转换数据格式
             const sites = result.results.map(row => ({
@@ -127,10 +155,16 @@ async function handleGet(request, env) {
                 updatedAt: row.updated_at
             }));
             
+            console.log('返回所有站点数据:', { count: sites.length });
             return createResponse({ success: true, data: sites });
         }
     } catch (error) {
         console.error('处理GET请求错误:', error);
+        console.error('错误详情:', { 
+            message: error.message, 
+            stack: error.stack,
+            name: error.name
+        });
         return createResponse({ success: false, error: error.message }, 500);
     }
 }

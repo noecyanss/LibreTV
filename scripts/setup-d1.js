@@ -2,9 +2,13 @@
 // scripts/setup-d1.js
 // CloudFlare D1 数据库设置脚本
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 console.log('🚀 LibreTV CloudFlare D1 数据库设置脚本');
 console.log('=====================================\n');
@@ -54,7 +58,7 @@ function createD1Database() {
 
 // 更新 wrangler.toml 文件
 function updateWranglerToml(databaseId) {
-    const wranglerPath = path.join(process.cwd(), 'wrangler.toml');
+    const wranglerPath = path.join(path.dirname(__dirname), 'wrangler.toml');
     
     try {
         let content = fs.readFileSync(wranglerPath, 'utf8');
@@ -101,11 +105,11 @@ function main() {
 }
 
 // 运行脚本
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
     main();
 }
 
-module.exports = {
+export {
     checkWrangler,
     createD1Database,
     updateWranglerToml,
