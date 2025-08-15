@@ -6,12 +6,12 @@ compatibility_date = "2023-12-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "libretv-db"
-database_id = "your-database-id-here"
+database_id = "b9e30cb7-5420-429d-8c6b-ad0e1bfe7fda"
 
 # 环境变量配置
 [vars]
 # 在 CloudFlare Pages 控制台中设置这些变量
-# PASSWORD = "your-password"
+# PASSWORD = "Asd0.123"
 
 # Pages 配置
 [build]
