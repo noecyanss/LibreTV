@@ -129,6 +129,9 @@ async function handleAddCustomerSite() {
             // 隐藏表单
             cancelAddCustomerSite();
             
+            // 重新从数据库加载客户站点数据
+            await window.loadCustomerSitesFromDB();
+            
             // 刷新客户站点列表
             await displayCustomerSites();
             
@@ -213,6 +216,9 @@ async function updateCustomerSite(id) {
             // 隐藏表单
             cancelAddCustomerSite();
             
+            // 重新从数据库加载客户站点数据
+            await window.loadCustomerSitesFromDB();
+            
             // 刷新客户站点列表
             await displayCustomerSites();
             
@@ -246,6 +252,9 @@ async function deleteCustomerSite(id) {
         const success = await window.deleteCustomerSite(id);
         
         if (success) {
+            // 重新从数据库加载客户站点数据
+            await window.loadCustomerSitesFromDB();
+            
             // 刷新客户站点列表
             await displayCustomerSites();
             
